@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
     <div className="flex flex-col gap-8 items-center justify-center max-w-5xl mx-auto">
