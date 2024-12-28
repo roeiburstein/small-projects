@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import { Alert, AlertDescription } from '../../components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 
+// Currency Arbitrage Types
 interface ArbitrageStep {
   currency: string;
   amount: number;
@@ -16,14 +18,32 @@ interface ArbitrageOpportunity {
   profitPercentage: number;
 }
 
-export default function ArbitragePage() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [opportunities, setOpportunities] = useState<ArbitrageOpportunity[]>([]);
-  const [error, setError] = useState<string>('');
+// Crypto Arbitrage Types
+interface CryptoArbitrageOpportunity {
+  coin: string;
+  buyExchange: string;
+  sellExchange: string;
+  buyPrice: number;
+  sellPrice: number;
+  profitPercentage: number;
+  investmentAmount: number;
+  potentialProfit: number;
+}
 
-  const handleSearch = async () => {
-    setIsLoading(true);
-    setError('');
+export default function ArbitragePage() {
+  // Currency Arbitrage State
+  const [isLoadingCurrency, setIsLoadingCurrency] = useState(false);
+  const [currencyOpportunities, setCurrencyOpportunities] = useState<ArbitrageOpportunity[]>([]);
+  const [currencyError, setCurrencyError] = useState<string>('');
+
+  // Crypto Arbitrage State
+  const [isLoadingCrypto, setIsLoadingCrypto] = useState(false);
+  const [cryptoOpportunities, setCryptoOpportunities] = useState<CryptoArbitrageOpportunity[]>([]);
+  const [cryptoError, setCryptoError] = useState<string>('');
+
+  const handleCurrencySearch = async () => {
+    setIsLoadingCurrency(true);
+    setCurrencyError('');
     try {
       const response = await fetch('/api/find-arbitrage', {
         method: 'POST',
@@ -40,11 +60,38 @@ export default function ArbitragePage() {
       if (data.error) {
         throw new Error(data.error);
       }
-      setOpportunities(data.opportunities);
+      setCurrencyOpportunities(data.opportunities);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setCurrencyError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
-      setIsLoading(false);
+      setIsLoadingCurrency(false);
+    }
+  };
+
+  const handleCryptoSearch = async () => {
+    setIsLoadingCrypto(true);
+    setCryptoError('');
+    try {
+      const response = await fetch('/api/crypto-arbitrage', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch crypto arbitrage opportunities');
+      }
+      
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      setCryptoOpportunities(data.opportunities);
+    } catch (err) {
+      setCryptoError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoadingCrypto(false);
     }
   };
 
@@ -59,78 +106,152 @@ export default function ArbitragePage() {
   return (
     <>
       <section className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">Currency Arbitrage Finder</h1>
+        <h1 className="text-4xl font-bold tracking-tight">Arbitrage Finder</h1>
         <p className="text-xl text-muted-foreground">
-          Find profitable currency exchange cycles using real-time exchange rates
+          Find profitable arbitrage opportunities across different markets
         </p>
       </section>
 
-      <div className="mt-8 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Find Opportunities</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button 
-              onClick={handleSearch}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? 'Searching...' : 'Find Arbitrage Opportunities'}
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="mt-8">
+        <Tabs defaultValue="currency" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="currency">Currency Arbitrage</TabsTrigger>
+            <TabsTrigger value="crypto">Crypto Arbitrage</TabsTrigger>
+          </TabsList>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+          <TabsContent value="currency" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Find Currency Arbitrage</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  onClick={handleCurrencySearch}
+                  disabled={isLoadingCurrency}
+                  className="w-full"
+                >
+                  {isLoadingCurrency ? 'Searching...' : 'Find Currency Opportunities'}
+                </Button>
+              </CardContent>
+            </Card>
 
-        {opportunities.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Arbitrage Opportunities</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {opportunities.map((opportunity, index) => (
-                  <div 
-                    key={index} 
-                    className="p-6 rounded-lg border space-y-4"
-                  >
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-semibold">
-                        Path: {opportunity.steps.map(step => step.currency).join(' → ')}
-                      </h3>
-                      <span className={opportunity.profitPercentage > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                        Profit: {opportunity.profitPercentage.toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {opportunity.steps.map((step, stepIndex) => {
-                        const nextStep = opportunity.steps[stepIndex + 1];
-                        if (!nextStep) return null;
-                        return (
-                          <div key={stepIndex} className="flex items-center gap-2 text-sm">
-                            <span className="font-medium">{step.currency}</span>
-                            <span className="text-muted-foreground">{formatAmount(step.amount)}</span>
-                            <span className="text-muted-foreground">→</span>
-                            <span className="font-medium">{nextStep.currency}</span>
-                            <span className="text-muted-foreground">{formatAmount(nextStep.amount)}</span>
-                            <span className="text-muted-foreground ml-2">
-                              (Rate: {nextStep.rate?.toFixed(6)})
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
+            {currencyError && (
+              <Alert variant="destructive">
+                <AlertDescription>{currencyError}</AlertDescription>
+              </Alert>
+            )}
+
+            {currencyOpportunities.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Currency Arbitrage Opportunities</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {currencyOpportunities.map((opportunity, index) => (
+                      <div 
+                        key={index} 
+                        className="p-6 rounded-lg border space-y-4"
+                      >
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-semibold">
+                            Path: {opportunity.steps.map(step => step.currency).join(' → ')}
+                          </h3>
+                          <span className={opportunity.profitPercentage > 0 ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                            Profit: {opportunity.profitPercentage.toFixed(2)}%
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {opportunity.steps.map((step, stepIndex) => {
+                            const nextStep = opportunity.steps[stepIndex + 1];
+                            if (!nextStep) return null;
+                            return (
+                              <div key={stepIndex} className="flex items-center gap-2 text-sm">
+                                <span className="font-medium">{step.currency}</span>
+                                <span className="text-muted-foreground">{formatAmount(step.amount)}</span>
+                                <span className="text-muted-foreground">→</span>
+                                <span className="font-medium">{nextStep.currency}</span>
+                                <span className="text-muted-foreground">{formatAmount(nextStep.amount)}</span>
+                                <span className="text-muted-foreground ml-2">
+                                  (Rate: {nextStep.rate?.toFixed(6)})
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="crypto" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Find Crypto Arbitrage</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  onClick={handleCryptoSearch}
+                  disabled={isLoadingCrypto}
+                  className="w-full"
+                >
+                  {isLoadingCrypto ? 'Searching...' : 'Find Crypto Opportunities'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {cryptoError && (
+              <Alert variant="destructive">
+                <AlertDescription>{cryptoError}</AlertDescription>
+              </Alert>
+            )}
+
+            {cryptoOpportunities.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Crypto Arbitrage Opportunities</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {cryptoOpportunities.map((opportunity, index) => (
+                      <div 
+                        key={index} 
+                        className="p-4 rounded-lg border space-y-3"
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h3 className="text-lg font-semibold">
+                            {opportunity.coin.toUpperCase()}
+                          </h3>
+                          <span className="text-green-600 font-bold">
+                            Profit: {opportunity.profitPercentage.toFixed(2)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <span>BUY on {opportunity.buyExchange}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span>SELL on {opportunity.sellExchange}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="space-y-1">
+                            <div>Buy Price: ${formatAmount(opportunity.buyPrice)}</div>
+                            <div className="text-muted-foreground">Investment: ${formatAmount(opportunity.investmentAmount)}</div>
+                          </div>
+                          <div className="space-y-1 text-right">
+                            <div>Sell Price: ${formatAmount(opportunity.sellPrice)}</div>
+                            <div className="text-muted-foreground">Potential Profit: ${formatAmount(opportunity.potentialProfit)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );
