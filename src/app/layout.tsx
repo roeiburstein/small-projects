@@ -45,7 +45,9 @@ export default function RootLayout({
         </header>
         
         <main className="flex-1">
-          {children}
+          <div className="container py-8">
+            {children}
+          </div>
         </main>
 
         <footer className="border-t mt-16">
